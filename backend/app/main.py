@@ -1,13 +1,23 @@
 """Ponto de entrada da API do NormaAI."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import health
+from app.api import documents, health, operations
 from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
+from app.database.connection import close_pool
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    close_pool()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -15,7 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
     configure_logging(resolved.log_level)
 
-    app = FastAPI(title=resolved.app_name, version=__version__)
+    app = FastAPI(title=resolved.app_name, version=__version__, lifespan=lifespan)
 
     if settings is not None:
         app.dependency_overrides[get_settings] = lambda: settings
@@ -29,7 +39,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     register_error_handlers(app)
+
+    # /health fica na raiz para o monitoramento não depender do prefixo.
     app.include_router(health.router)
+    app.include_router(documents.router, prefix="/api")
+    app.include_router(operations.router, prefix="/api")
 
     return app
 
