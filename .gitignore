@@ -25,7 +25,3 @@ dist/
 .vscode/
 .idea/
 .DS_Store
-
-# Documentacao interna - permanece apenas local
-docs/
-*.md

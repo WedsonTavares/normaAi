@@ -7,8 +7,9 @@ services:
       POSTGRES_USER: normaai
       POSTGRES_PASSWORD: normaai
       POSTGRES_DB: normaai
+    # 5434 no host para nao conflitar com outros Postgres locais.
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - normaai_db:/var/lib/postgresql/data
     healthcheck:

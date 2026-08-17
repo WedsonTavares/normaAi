@@ -45,6 +45,11 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class PayloadTooLargeError(AppError):
+    status_code = 413
+    code = "payload_too_large"
+
+
 class ExternalServiceError(AppError):
     """Falha em dependência externa (OpenAI, banco, storage)."""
 
