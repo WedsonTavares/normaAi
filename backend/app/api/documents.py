@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
 
 from app.core.config import Settings, get_settings
-from app.core.errors import InvalidInputError, PayloadTooLargeError
+from app.core.errors import InvalidInputError, NotFoundError, PayloadTooLargeError
 from app.database.connection import connection
 from app.schemas.documents import (
     DocumentDetail,
@@ -14,7 +14,8 @@ from app.schemas.documents import (
     ProcessResult,
     UploadResult,
 )
-from app.services import document_service
+from app.schemas.extraction import ExtractedDocument, ExtractionResponse
+from app.services import document_service, extraction_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -71,6 +72,24 @@ def get_document(document_id: UUID) -> DocumentDetail:
     with connection() as conn:
         row = document_service.get_document(conn, document_id)
     return DocumentDetail.model_validate(row)
+
+
+@router.get("/{document_id}/extraction", response_model=ExtractionResponse)
+def get_extraction(document_id: UUID) -> ExtractionResponse:
+    """Extração estruturada vigente do documento (RN-14)."""
+    with connection() as conn:
+        document_service.get_document(conn, document_id)
+        row = extraction_service.get_current_extraction(conn, document_id)
+
+    if row is None:
+        raise NotFoundError("Este documento ainda não possui extração estruturada.")
+
+    return ExtractionResponse(
+        document_id=row["document_id"],
+        model=row["model"],
+        prompt_version=row["prompt_version"],
+        data=ExtractedDocument.model_validate(row["data"]),
+    )
 
 
 @router.post("/{document_id}/process", response_model=ProcessResult)

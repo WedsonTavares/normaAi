@@ -176,12 +176,29 @@ Sem ferramenta de migração externa enquanto o schema couber nesse modelo.
 
 Um módulo por responsabilidade, todos em `services/`:
 
+**Dois provedores**, porque o DeepSeek não expõe endpoint de embeddings:
+
+| Uso                              | Provedor | Modelo                   |
+| -------------------------------- | -------- | ------------------------ |
+| Extração estruturada e RAG       | DeepSeek | `deepseek-v4-pro`        |
+| Embeddings                       | OpenAI   | `text-embedding-3-small` |
+
+Ambos falam o protocolo da OpenAI, então o mesmo SDK atende os dois — muda só a `base_url`.
+
 | Módulo                  | Responsabilidade                                                |
 | ----------------------- | --------------------------------------------------------------- |
-| `openai_client.py`      | cliente OpenAI único, timeout e tratamento de erro centralizados |
+| `llm_client.py`         | criação dos dois clientes, timeout e tradução de erro            |
 | `embedding_service.py`  | gerar embeddings em lote                                         |
-| `extraction_service.py` | extração estruturada via Structured Outputs                      |
+| `extraction_service.py` | extração estruturada e validação da saída                        |
 | `rag_service.py`        | retrieval + montagem de contexto + resposta com citações         |
+
+**`deepseek-v4-pro` é um modelo de raciocínio.** Os tokens de raciocínio contam no orçamento
+de saída: com `max_tokens` curto a resposta volta **vazia**, sem erro. Por isso a extração usa
+`max_tokens=4000`.
+
+**Sem `json_schema` estrito.** O DeepSeek suporta apenas `response_format: json_object`, que
+garante JSON válido mas não garante o formato. O schema é imposto do nosso lado: o payload
+passa por `ExtractedDocument` (Pydantic) e saída fora do contrato é falha da etapa (RN-12).
 
 Regras:
 - modelo e dimensão de embedding vêm de configuração, nunca hardcoded no meio da lógica;

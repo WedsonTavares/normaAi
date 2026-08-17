@@ -25,11 +25,19 @@ class Settings(BaseSettings):
     # NoDecode impede o pydantic-settings de tentar ler o valor como JSON.
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
-    # Preenchidos a partir da Fase 2. Vazio significa "não configurado".
     database_url: str = ""
-    openai_api_key: str = ""
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
+
+    # Extração estruturada e respostas do RAG. A API do DeepSeek é compatível com o SDK da
+    # OpenAI, então só muda a base_url.
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.deepseek.com"
+    llm_model: str = "deepseek-v4-pro"
+
+    # Embeddings vêm de outro provedor: o DeepSeek não gera vetores.
+    # Trocar de modelo exige alterar a dimensão da coluna `embedding` e regerar tudo (RN-40).
+    embeddings_api_key: str = ""
+    embeddings_base_url: str = "https://api.openai.com/v1"
+    embeddings_model: str = "text-embedding-3-small"
 
     storage_dir: Path = Path("storage")
     max_upload_mb: int = 20

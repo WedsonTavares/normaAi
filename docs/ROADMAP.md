@@ -62,17 +62,28 @@ documento inexistente devolveria 502 em vez de 404. Passou a capturar apenas err
 
 ---
 
-## Fase 3 — Extração estruturada ⬜
+## Fase 3 — Extração estruturada 🟡 aguardando aprovação
 
-- [ ] Schemas Pydantic dos campos extraídos (RN-10)
-- [ ] Seed do prompt inicial em `prompt_versions` (RN-20, RN-21)
-- [ ] `extraction_service` usando Structured Outputs, com validação obrigatória (RN-12)
-- [ ] Persistência em `document_extractions` com modelo e versão do prompt (RN-13, RN-14)
-- [ ] `GET /documents/{id}/extraction`
-- [ ] Tratamento de erro e timeout da OpenAI (RN-81)
-- [ ] Testes com dublê da OpenAI: saída válida, saída inválida, falha da API
+- [x] Schemas Pydantic dos campos extraídos (RN-10)
+- [x] Seed do prompt inicial em `prompt_versions` (RN-20, RN-21)
+- [x] `extraction_service` com validação obrigatória da saída (RN-12)
+- [x] Persistência em `document_extractions` com modelo e versão do prompt (RN-13, RN-14)
+- [x] `GET /api/documents/{id}/extraction`
+- [x] Tratamento de erro e timeout do provedor de IA (RN-81)
+- [x] Testes com dublê: saída válida, JSON inválido, resposta vazia, fora do schema, timeout
 
 **Pronto quando:** um documento processado exibe seus dados estruturados validados.
+
+**Validado com a API real** sobre uma portaria de exemplo: título, órgão, tipo, 2 assuntos,
+2 obrigações com responsável, 2 prazos e 2 normas relacionadas — pipeline completo em ~48s.
+
+**Iteração de prompt medida (RN-20):** a v1 devolvia `published_at: null` mesmo com a data no
+cabeçalho, por tratá-la como inferência. A v2 explicita onde a data aparece, sem afrouxar a
+regra de não inventar. Resultado: `2024-04-12`. As duas extrações seguem no banco (RN-14).
+
+**Correção durante a fase:** `storage.read_pdf` estourava `FileNotFoundError` quando o
+registro existia mas o arquivo sumira do disco, e o usuário via "falha inesperada". Agora
+devolve mensagem explicando que o PDF precisa ser reenviado.
 
 ---
 

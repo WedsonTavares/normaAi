@@ -8,6 +8,7 @@ qualquer máquina. Para executá-los:
 """
 
 import os
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,7 +20,8 @@ from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.database.connection import Row, close_pool, connection
 from app.database.migrate import run_migrations
-from app.services import document_service
+from app.schemas.extraction import ExtractedDocument
+from app.services import document_service, extraction_service
 from app.tests.test_pdf_text import blank_pdf, pdf_with_text
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -55,8 +57,11 @@ def _create(conn: Connection[Row], name: str, *pages: str) -> Row:
     O commit importa: `process_document` roda em outra conexão, como acontece de verdade
     quando a BackgroundTask executa depois que a resposta HTTP já fechou a transação.
     """
+    # O identificador único evita que dois testes gerem PDFs idênticos e caiam na
+    # deduplicação por hash, reusando o documento um do outro.
+    unicas = (f"{pages[0]} [{uuid.uuid4()}]", *pages[1:])
     document, _ = document_service.create_document(
-        conn, name, "application/pdf", pdf_with_text(*pages)
+        conn, name, "application/pdf", pdf_with_text(*unicas)
     )
     conn.commit()
     return document
@@ -64,7 +69,7 @@ def _create(conn: Connection[Row], name: str, *pages: str) -> Row:
 
 def test_upload_duplicado_devolve_o_mesmo_documento(conn: Connection[Row]) -> None:
     """RN-04."""
-    content = pdf_with_text("Art. 1o Teste de deduplicacao.")
+    content = pdf_with_text(f"Art. 1o Deduplicacao {uuid.uuid4()}.")
 
     first, existed_first = document_service.create_document(
         conn, "norma.pdf", "application/pdf", content
@@ -86,7 +91,15 @@ def test_processamento_concorrente_nao_reinicia(conn: Connection[Row]) -> None:
     assert document_service.start_processing(conn, document["id"]) is False
 
 
-def test_pipeline_deixa_documento_pronto_com_texto(conn: Connection[Row]) -> None:
+def test_pipeline_deixa_documento_pronto_com_texto(
+    conn: Connection[Row], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pipeline completo com a IA dublada — teste não gasta API nem depende de rede."""
+    monkeypatch.setattr(
+        extraction_service,
+        "extract_from_text",
+        lambda text, prompt: ExtractedDocument(title="Portaria de teste"),
+    )
     document = _create(conn, "norma.pdf", "Art. 1o Primeira.", "Art. 2o Segunda.")
 
     document_service.process_document(document["id"])
@@ -96,11 +109,15 @@ def test_pipeline_deixa_documento_pronto_com_texto(conn: Connection[Row]) -> Non
     assert updated["page_count"] == 2
     assert "Primeira" in updated["page_texts"][0]
 
+    extracao = extraction_service.get_current_extraction(conn, document["id"])
+    assert extracao is not None
+    assert extracao["data"]["title"] == "Portaria de teste"
+
 
 def test_pdf_sem_texto_marca_documento_como_failed(conn: Connection[Row]) -> None:
     """RN-03 e RN-06: falha na extração não vira sucesso parcial."""
     document, _ = document_service.create_document(
-        conn, "digitalizado.pdf", "application/pdf", blank_pdf()
+        conn, "digitalizado.pdf", "application/pdf", blank_pdf(marker=str(uuid.uuid4()))
     )
     conn.commit()
 

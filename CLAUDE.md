@@ -33,7 +33,7 @@ Sempre versões estáveis atuais no momento da instalação.
 | Frontend | React, TypeScript, Vite, Tailwind CSS           |
 | Backend  | Python, FastAPI, Pydantic                       |
 | Banco    | Supabase (PostgreSQL) + pgvector                |
-| IA       | OpenAI API — embeddings, Structured Outputs, RAG |
+| IA       | DeepSeek (extração e RAG) + OpenAI (somente embeddings) |
 | RAG      | LlamaIndex **apenas onde realmente agregar valor** |
 | Testes   | Pytest no backend; testes essenciais no frontend quando necessário |
 | Infra    | Docker apenas onde facilitar execução/deploy, variáveis de ambiente, Git/GitHub |

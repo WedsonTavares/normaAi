@@ -7,9 +7,10 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.types.json import Json
 
+from app.core.config import get_settings
 from app.core.errors import AppError, InvalidInputError, NotFoundError
 from app.database.connection import Row, connection
-from app.services import storage
+from app.services import extraction_service, prompt_service, storage
 from app.services.pdf_text import extract_page_texts
 
 logger = logging.getLogger(__name__)
@@ -110,8 +111,8 @@ def delete_document(conn: Connection[Row], document_id: UUID) -> None:
 def process_document(document_id: UUID) -> None:
     """Pipeline de processamento. Roda em background, com conexão própria.
 
-    Hoje: extração do texto. As fases seguintes acrescentam extração estruturada,
-    chunking e embeddings a esta mesma sequência.
+    Hoje: texto e extração estruturada. Chunking e embeddings entram nesta mesma sequência.
+    Só vira `ready` quando todas as etapas passam (RN-06).
     """
     try:
         with connection() as conn:
@@ -120,23 +121,55 @@ def process_document(document_id: UUID) -> None:
         page_texts = extract_page_texts(storage.read_pdf(document["storage_path"]))
 
         with connection() as conn:
-            conn.execute(
-                """
-                update documents
-                   set page_texts = %s, page_count = %s, status = 'ready',
-                       error_message = null, updated_at = now()
-                 where id = %s
-                """,
-                (Json(page_texts), len(page_texts), document_id),
+            _save_page_texts(conn, document_id, page_texts)
+            prompt = prompt_service.get_active_prompt(conn, prompt_service.EXTRACTION_PROMPT)
+
+        # A chamada ao modelo fica fora de qualquer transação: leva dezenas de segundos e
+        # seguraria uma conexão do pool sem necessidade.
+        text = extraction_service.build_document_text(page_texts)
+        data = extraction_service.extract_from_text(text, prompt["content"])
+
+        with connection() as conn:
+            extraction_service.save_extraction(
+                conn, document_id, prompt["id"], get_settings().llm_model, data
             )
-        logger.info("Documento %s processado: %d páginas", document_id, len(page_texts))
+            _mark_ready(conn, document_id)
+
+        logger.info(
+            "Documento %s pronto: %d páginas, prompt v%s",
+            document_id,
+            len(page_texts),
+            prompt["version"],
+        )
 
     except AppError as exc:
-        # Erro esperado (PDF ilegível, sem texto): a mensagem é segura para o usuário.
+        # Erro esperado (PDF ilegível, IA indisponível): a mensagem é segura para o usuário.
         _mark_failed(document_id, exc.message)
     except Exception:
         logger.exception("Falha inesperada ao processar documento %s", document_id)
         _mark_failed(document_id, "Falha inesperada ao processar o documento.")
+
+
+def _save_page_texts(conn: Connection[Row], document_id: UUID, page_texts: list[str]) -> None:
+    conn.execute(
+        """
+        update documents
+           set page_texts = %s, page_count = %s, updated_at = now()
+         where id = %s
+        """,
+        (Json(page_texts), len(page_texts), document_id),
+    )
+
+
+def _mark_ready(conn: Connection[Row], document_id: UUID) -> None:
+    conn.execute(
+        """
+        update documents
+           set status = 'ready', error_message = null, updated_at = now()
+         where id = %s
+        """,
+        (document_id,),
+    )
 
 
 def _mark_failed(document_id: UUID, message: str) -> None:

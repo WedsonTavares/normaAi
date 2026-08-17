@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 from app.core.config import get_settings
+from app.core.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -27,4 +28,15 @@ def delete_pdf(storage_path: str) -> None:
 
 
 def read_pdf(storage_path: str) -> bytes:
-    return Path(storage_path).read_bytes()
+    """Lê o PDF gravado.
+
+    Arquivo ausente com registro presente acontece quando o disco é efêmero ou foi limpo.
+    A mensagem precisa dizer isso, senão o usuário vê "falha inesperada" sem pista nenhuma.
+    """
+    path = Path(storage_path)
+    if not path.exists():
+        logger.error("Arquivo ausente no disco: %s", storage_path)
+        raise NotFoundError(
+            "O arquivo deste documento não está mais disponível. Envie o PDF novamente."
+        )
+    return path.read_bytes()

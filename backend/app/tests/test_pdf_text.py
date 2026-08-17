@@ -50,11 +50,17 @@ def pdf_with_text(*page_texts: str) -> bytes:
     return bytes(pdf)
 
 
-def blank_pdf(pages: int = 1) -> bytes:
-    """PDF válido sem nenhum texto — simula documento digitalizado."""
+def blank_pdf(pages: int = 1, marker: str = "") -> bytes:
+    """PDF válido sem nenhum texto — simula documento digitalizado.
+
+    `marker` entra nos metadados só para mudar os bytes: dois testes que gerassem PDFs
+    idênticos cairiam na deduplicação por hash e reusariam o documento um do outro.
+    """
     writer = PdfWriter()
     for _ in range(pages):
         writer.add_blank_page(width=595, height=842)
+    if marker:
+        writer.add_metadata({"/Keywords": marker})
 
     buffer = io.BytesIO()
     writer.write(buffer)
