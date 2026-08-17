@@ -1,0 +1,114 @@
+{
+  "name": "NormaAI 03 - Monitorar API",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -120
+      ],
+      "id": "c83e08f8-4d8b-4405-b551-41410b49da75",
+      "name": "Testar manualmente"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -700,
+        120
+      ],
+      "id": "bc099d2a-468b-47f2-ab07-7497baf31e9a",
+      "name": "Verificar a cada 5 minutos"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NORMAAI_API_URL + '/health' }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -400,
+        0
+      ],
+      "id": "7b81da83-f06e-49e2-bd03-88e8e4c6c190",
+      "name": "Consultar health",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconst status = String(result.status ?? 'ausente').toLowerCase();\nconst healthy = ['ok', 'healthy', 'up'].includes(status);\n\nif (!healthy) {\n  throw new Error(`NormaAI API respondeu health inválido: ${status}`);\n}\n\nreturn [{ json: { status: 'healthy', checked_at: new Date().toISOString(), api: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        0
+      ],
+      "id": "bf21ec5e-c176-45b7-885c-109facd3adf0",
+      "name": "Validar saúde"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Testar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Consultar health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar a cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Consultar health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar health": {
+      "main": [
+        [
+          {
+            "node": "Validar saúde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "5889127a-c6fc-424f-b2ac-96a35679863b",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,155 @@
+{
+  "name": "NormaAI 01 - Orquestrar processamento de documento",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "normaai/document/process",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -760,
+        0
+      ],
+      "id": "04977ccd-6548-4079-8822-65ea65e5679b",
+      "name": "Receber documento",
+      "webhookId": "848a0b9a-b8db-47c7-be97-628c8cfdb616"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1e069df-908d-402d-a934-d9beff8bc470",
+              "name": "document_id",
+              "value": "={{ $json.body?.document_id ?? $json.document_id ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "fc911ca6-ce1c-4985-beef-edda25033c70",
+              "name": "requested_by",
+              "value": "={{ $json.body?.requested_by ?? 'n8n-webhook' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -520,
+        0
+      ],
+      "id": "029547bf-bc67-4df9-8eee-e799e961a631",
+      "name": "Normalizar entrada"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst documentId = String(data.document_id || '').trim();\n\nif (!documentId) {\n  throw new Error('document_id é obrigatório');\n}\n\nreturn [{ json: { ...data, document_id: documentId } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        0
+      ],
+      "id": "9a0df561-d961-46fc-afa9-6b549459e2d0",
+      "name": "Validar document_id"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NORMAAI_API_URL + '/api/documents/' + $json.document_id + '/process' }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -20,
+        0
+      ],
+      "id": "f5880a09-e31a-468d-9dc9-cb7fdf99dd41",
+      "name": "Processar no FastAPI"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        0
+      ],
+      "id": "8dc5ba97-bafc-40a4-8076-082085dc692b",
+      "name": "Responder sucesso"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receber documento": {
+      "main": [
+        [
+          {
+            "node": "Normalizar entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar entrada": {
+      "main": [
+        [
+          {
+            "node": "Validar document_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar document_id": {
+      "main": [
+        [
+          {
+            "node": "Processar no FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar no FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Responder sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "34d9bf77-f272-49c0-8a83-450aa58084a0",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,31 @@
+# Segredos
+.env
+.env.local
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Armazenamento local de PDFs
+backend/storage/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Editores e SO
+.vscode/
+.idea/
+.DS_Store
+
+# Documentacao interna - permanece apenas local
+docs/
+*.md

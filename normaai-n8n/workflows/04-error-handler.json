@@ -1,0 +1,86 @@
+{
+  "name": "NormaAI 04 - Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        0
+      ],
+      "id": "0238c0b4-9ca7-44e1-9ae3-f23ad6afc552",
+      "name": "Erro em workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const event = $input.first().json;\nconst execution = event.execution ?? {};\nconst workflow = event.workflow ?? {};\nconst error = execution.error ?? event.error ?? {};\n\nreturn [{\n  json: {\n    source: 'n8n',\n    workflow_id: workflow.id ?? null,\n    workflow_name: workflow.name ?? null,\n    execution_id: execution.id ?? null,\n    execution_url: execution.url ?? null,\n    last_node_executed: execution.lastNodeExecuted ?? null,\n    error_message: error.message ?? String(error ?? 'Unknown error'),\n    error_stack: error.stack ?? null,\n    recorded_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        0
+      ],
+      "id": "b73ecaf0-deda-407a-9909-b9a0a95ed18e",
+      "name": "Normalizar erro"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NORMAAI_API_URL + '/api/operations/n8n-errors' }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        0
+      ],
+      "id": "e5122232-ad10-4e4d-be0b-4484e096e3af",
+      "name": "Registrar erro no FastAPI",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Erro em workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalizar erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar erro": {
+      "main": [
+        [
+          {
+            "node": "Registrar erro no FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "6fd85dc0-2a1b-45b8-a9e4-269e0e07b32f",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,150 @@
+{
+  "name": "NormaAI 02 - Avaliar RAG",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -120
+      ],
+      "id": "b6ea53ec-15c3-4e0d-9838-ff337ecfef41",
+      "name": "Executar manualmente"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -700,
+        120
+      ],
+      "id": "2572a2be-dac1-4015-933f-841aad839c19",
+      "name": "Executar diariamente"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "50aebf0e-0beb-4971-8ea9-2117a1d8f934",
+              "name": "triggered_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -420,
+        0
+      ],
+      "id": "1051a758-e13c-4dba-9c46-f38c7af9a7cd",
+      "name": "Preparar execução"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NORMAAI_API_URL + '/api/evaluations/run' }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: 'n8n', triggered_at: $json.triggered_at }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        0
+      ],
+      "id": "0d68c5d9-c563-494d-b1ad-1290481ce804",
+      "name": "Executar avaliação no FastAPI"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nreturn [{\n  json: {\n    status: 'evaluation_completed',\n    run_id: result.run_id ?? null,\n    questions: result.questions ?? null,\n    hit_rate: result.hit_rate ?? null,\n    mrr: result.mrr ?? null,\n    raw: result\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        140,
+        0
+      ],
+      "id": "7505153c-7d31-4dbd-966b-74ec4e006989",
+      "name": "Resumir métricas"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Executar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Preparar execução",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar diariamente": {
+      "main": [
+        [
+          {
+            "node": "Preparar execução",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar execução": {
+      "main": [
+        [
+          {
+            "node": "Executar avaliação no FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar avaliação no FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Resumir métricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "337fa2ca-e2a9-4faa-938a-e91802410f35",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

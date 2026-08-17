@@ -1,0 +1,21 @@
+# Postgres com pgvector para desenvolvimento local.
+# Alternativa ao Supabase; o schema aplicado é o mesmo.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: normaai
+      POSTGRES_PASSWORD: normaai
+      POSTGRES_DB: normaai
+    ports:
+      - "5432:5432"
+    volumes:
+      - normaai_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U normaai -d normaai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  normaai_db:
